@@ -106,11 +106,28 @@ class AdaRRT():
         """
         for k in range(self.max_iter):
             # FILL in your code here
+            sampleNearGoalProbability = 0.2
+            shouldSampleNearGoal = True if np.random.uniform(0.0, 1.0) <= sampleNearGoalProbability else False
+            # random_sample_point = self._get_random_sample()
+            if shouldSampleNearGoal:
+                random_sample_point = self._get_random_sample_near_goal()
+            else:
+                random_sample_point = self._get_random_sample()
+            
+            nearest_neighbor_node = self._get_nearest_neighbor(random_sample_point)
+            new_node = self._extend_sample(random_sample_point, nearest_neighbor_node)
 
             if new_node and self._check_for_completion(new_node):
                 # FILL in your code here
-
-                return path
+                # build path from start to goal
+                path = [new_node]
+                # trace parent pointers until the start state is in the path list
+                while (path[-1] != self.start):
+                    path.append(path[-1].parent)
+                path = list(reversed(path))
+                state_path = [node.state for node in path]
+                return state_path
+                # return path
 
         print("Failed to find path from {0} to {1} after {2} iterations!".format(
             self.start.state, self.goal.state, self.max_iter))
@@ -123,6 +140,15 @@ class AdaRRT():
             space.
         """
         # FILL in your code here
+        random_sample = np.random.uniform(self.joint_lower_limits, self.joint_upper_limits)
+        return random_sample
+    
+    def _get_random_sample_near_goal(self):
+        delta = np.array([0.05,0.05,0.05,0.05,0.05,0.05])
+        lower_limit = self.goal.state - delta
+        upper_limit = self.goal.state + delta
+        random_sample = np.random.uniform(lower_limit, upper_limit)
+        return random_sample
 
     def _get_nearest_neighbor(self, sample):
         """
@@ -133,6 +159,16 @@ class AdaRRT():
         :returns: A Node object for the closest neighbor.
         """
         # FILL in your code here
+        mindist = float('inf')
+        minnode = None
+        # implicit BFS. begin at start node and measure distance from the sample
+        # goal node is excluded from the search necessarily because it is not part of the search tree rooted at the start node
+        for currnode in self.start:
+            dist = np.linalg.norm(currnode.state - sample)
+            if dist < mindist:
+                mindist = dist
+                minnode = currnode
+        return minnode
 
     def _extend_sample(self, sample, neighbor):
         """
@@ -146,6 +182,13 @@ class AdaRRT():
         :returns: The new Node object. On failure (collision), returns None.
         """
         # FILL in your code here
+        direction_vector = sample - neighbor.state
+        direction_vector = direction_vector / np.linalg.norm(direction_vector)
+        new_state = neighbor.state + self.step_size * direction_vector
+        if self._check_for_collision(new_state):
+            return None
+        else:
+            return neighbor.add_child(new_state)
 
     def _check_for_completion(self, node):
         """
@@ -155,6 +198,11 @@ class AdaRRT():
         :returns: Boolean indicating node is close enough for completion.
         """
         # FILL in your code here
+        dist = np.linalg.norm(node.state - self.goal.state)
+        if dist <= self.goal_precision:
+            return True
+        else:
+            return False
 
     def _trace_path_from_start(self, node=None):
         """
@@ -192,7 +240,8 @@ def main(is_sim):
     armHome = [-1.5, 3.22, 1.23, -2.19, 1.8, 1.2]
     goalConfig = [-1.72, 4.44, 2.02, -2.04, 2.66, 1.39]
     delta = 0.25
-    eps = 1.0
+    # eps = 1.0
+    eps = 0.2
 
     if is_sim:
         ada.set_positions(goalConfig)
@@ -246,8 +295,10 @@ def main(is_sim):
             waypoints.append((0.0 + i, waypoint))
 
         t0 = time.clock()
-        traj = ada.compute_joint_space_path(
+        traj = ada.compute_smooth_joint_space_path(
             ada.get_arm_state_space(), waypoints)
+        # traj = ada.compute_joint_space_path(
+        #     ada.get_arm_state_space(), waypoints)
         t = time.clock() - t0
         print(str(t) + "seconds elapsed")
         raw_input('Press ENTER to execute trajectory and exit')
