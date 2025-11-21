@@ -120,12 +120,13 @@ class AdaRRT():
             if new_node and self._check_for_completion(new_node):
                 # FILL in your code here
                 # build path from start to goal
-                path = [new_node]
-                # trace parent pointers until the start state is in the path list
-                while (path[-1] != self.start):
-                    path.append(path[-1].parent)
-                path = list(reversed(path))
-                state_path = [node.state for node in path]
+                # path = [new_node]
+                # # trace parent pointers until the start state is in the path list
+                # while (path[-1] != self.start):
+                #     path.append(path[-1].parent)
+                # path = list(reversed(path))
+                # state_path = [node.state for node in path]
+                state_path = self._trace_path_from_start(new_node)
                 return state_path
                 # return path
 
@@ -214,6 +215,13 @@ class AdaRRT():
             ending at the goal state.
         """
         # FILL in your code here
+        path = [node]
+        # trace parent pointers until the start state is in the path list
+        while (path[-1] != self.start):
+            path.append(path[-1].parent)
+        path = list(reversed(path))
+        state_path = [node.state for node in path]
+        return state_path
 
     def _check_for_collision(self, sample):
         """
